@@ -8,9 +8,9 @@ class SPP_Env(Env):
 
     def __init__(self, T = [], N = []):
         self.Tasks=T
-        self.Nodes=N
+        self.Nodes= self._format_Nodes(N)
         self.Tasks_Original = T
-        self.Nodes_Original = N
+        self.Nodes_Original = self.Nodes
         self._target_task=0
         self._current_Tasks = []
 
@@ -46,17 +46,17 @@ class SPP_Env(Env):
         self.release_all()
         mask = self.get_action_mask(self.Tasks[self._target_task], self.Nodes)
         state = {
-            "Task_CPUt": task["Task_CPUt"],
-            "Task_RAM": task["Task_RAM"],
-            "user": task["user"],
-            "MinimTrans": task["MinimTrans"],
-            "DReq": task["DReq"]
+            "Task_CPUt": float(task["Task_CPUt"]),
+            "Task_RAM": float(task["Task_RAM"]),
+            "user": float(task["user"]),
+            "MinimTrans": float(task["MinimTrans"]),
+            "DReq": float(task["DReq"])
         }
 
-        return state
+        return state, mask
 
     # Esta funcion es equivalente a step de los environment en gym
-    def execute(self, actions):
+    def execute(self, action):
 
 
         """
@@ -75,39 +75,35 @@ class SPP_Env(Env):
         reward = 0
 
         # Comprobar si el estado en el que nos encontramos es un estado final y asigna la tarea 
-        terminal = 1 if self._target_task == len(self.Tasks) - 1 else 0
+        terminal = 1 if self._target_task == len(self.Tasks) - 2 else 0
 
-        # Si el episodio no ha terminado, proporcionamos el siguiente estado
-        if not terminal:
-            # Asignar la tarea siguiente a asignar como la tarea siguiente a la esperada
-            task = self.Tasks[self._target_task]
+        # Asignar la tarea siguiente a asignar como la tarea siguiente a la esperada
+        task = self.Tasks[self._target_task]
 
-            reward = -(1-(self.Nodes[actions["NumNodos"]]["percnormal"]/100))*(self.Nodes[actions["NumNodos"]]["maxenergy"]*(self.Nodes[actions["NumNodos"]]["percnormal"]/100)*self.Nodes[actions["NumNodos"]]["maxenergy"])*(self.Tasks[self._target_task]["Task_CPUt"]/self.Nodes[actions["NumNodos"]]["cpu"]*(self.Tasks[self._target_task]["Task_CPUt"]/self.Nodes[actions["NumNodos"]]["cpu"]))
+        reward = -(1-(self.Nodes[action]["percnormal"]/100))*(self.Nodes[action]["maxenergy"]*(self.Nodes[action]["percnormal"]/100)*self.Nodes[action]["maxenergy"])*(self.Tasks[self._target_task]["Task_CPUt"]/self.Nodes[action]["cpu"]*(self.Tasks[self._target_task]["Task_CPUt"]/self.Nodes[action]["cpu"]))
 
-            self.sustract_resources(actions["NumNodos"])
+        self.sustract_resources(action)
 
-            self._target_task = self._target_task + 1
+        self._target_task = self._target_task + 1
 
-            #Calculamos la mascara de acciones, esta nos indica las acciones que pueden ser tomadas en el siguiente paso de ejecucion
-            mask = self.get_action_mask(self.Tasks[self._target_task], self.Nodes)
+        #Calculamos la mascara de acciones, esta nos indica las acciones que pueden ser tomadas en el siguiente paso de ejecucion
+        mask = self.get_action_mask(self.Tasks[self._target_task], self.Nodes)
 
-            node = self.Nodes[actions["NumNodos"]]
+        node = self.Nodes[action]
 
-            state = {
-                "Task_CPUt": task["Task_CPUt"],
-                "Task_RAM": task["Task_RAM"],
-                "user": task["user"],
-                "MinimTrans": task["MinimTrans"],
-                "DReq": task["DReq"]
-            }
+        state = {
+            "Task_CPUt": float(task["Task_CPUt"]),
+            "Task_RAM": float(task["Task_RAM"]),
+            "user": float(task["user"]),
+            "MinimTrans": float(task["MinimTrans"]),
+            "DReq": float(task["DReq"])
+        }
 
 
-            return state, terminal, reward
-        else:
-            # Si el episodio ha terminado, proporcionamos un estado vacío
-            return {}, terminal, reward
+        return state, terminal, reward, mask
+
         
-    def sustract_resources(self, actions):
+    def sustract_resources(self, action):
 
         """
         Este método es un método auxiliar pensado para realizar la actualización de los nodos dada la acción realizada. 
@@ -117,11 +113,11 @@ class SPP_Env(Env):
         # Este método tambien debería actualizar la lista de perifericos de los que dispone un nodo, dado que dos periféricos no pueden ser usados
         # por una misma aplicación. Sin embargo, por ahora simplemente acutalizaremos los recursos de los nodos asignados de esta manera
 
-        self.Nodes[actions]["cpu"] = self.Nodes[actions]["cpu"] - self.Tasks[self._target_task]["Task_CPUt"]
-        self.Nodes[actions]["ram"] = self.Nodes[actions]["ram"] - self.Tasks[self._target_task]["Task_RAM"]
+        self.Nodes[action]["cpu"] = self.Nodes[action]["cpu"] - self.Tasks[self._target_task]["Task_CPUt"]
+        self.Nodes[action]["ram"] = self.Nodes[action]["ram"] - self.Tasks[self._target_task]["Task_RAM"]
 
         In_execution = {
-            "Node" : actions,
+            "Node" : action,
             "Task" : self._target_task
         }
 
@@ -136,8 +132,8 @@ class SPP_Env(Env):
         Node = _current_execution["Node"]
         Task = _current_execution["Task"]
 
-        self.Nodes[actions]["cpu"] = self.Nodes[actions]["cpu"] + self.Tasks[self._target_task]["Task_CPUt"]
-        self.Nodes[actions]["ram"] = self.Nodes[actions]["ram"] + self.Tasks[self._target_task]["Task_RAM"]
+        self.Nodes[action]["cpu"] = self.Nodes[action]["cpu"] + self.Tasks[self._target_task]["Task_CPUt"]
+        self.Nodes[action]["ram"] = self.Nodes[action]["ram"] + self.Tasks[self._target_task]["Task_RAM"]
 
     def release_all(self):
         """
@@ -168,3 +164,24 @@ class SPP_Env(Env):
     
     def get_nodes(self):
         return self.Nodes
+    
+    def _format_Nodes(Self, N):
+        
+        nodos = {}
+
+        for x in N:
+            nodo = {
+                "cpu" : float(N[x]["cpu"]),
+                "bwup": float(N[x]["bwup"]),
+                "pwup": float(N[x]["pwup"]),
+                "maxenergy": float(N[x]["maxenergy"]),
+                "ram": float(N[x]["ram"]),
+                "importance": float(N[x]["importance"]),
+                "pwdown": float(N[x]["pwdown"]),
+                "bwdown": float(N[x]["bwdown"]),
+                "cores": float(N[x]["cores"]),
+                "percnormal": float(N[x]["percnormal"])
+            }
+            nodos[x] = nodo
+
+        return nodos
