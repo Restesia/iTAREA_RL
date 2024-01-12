@@ -9,7 +9,7 @@ from tensorflow.keras.models import load_model
 
 class SIM_model_SQN():
 
-    def __init__(self, ruta = ""):
+    def __init__(self, ruta = "", states = any, nodes = any):
         
         if ruta == "":
             #Declaracion de la arquitectura
@@ -41,10 +41,14 @@ class SIM_model_SQN():
             #carga un modelo ya entrenado
             print("Modelo cargado")
             self.model = load_model(ruta)
+        
+        self.state_build = states
+        self.node_build = nodes
+        self.target_build = np.zeros((self.state_build.shape[0],1))
 
 
 
-    def train(self, action, q_value, gamma, reward, state, Nodes):
+    def build(self, action, q_value, gamma, reward, state, Nodes, task):
         """
         Este método lleva acabo la actualizacion de los pesos para una accion tomada.
 
@@ -60,11 +64,22 @@ class SIM_model_SQN():
 
         Nodes -> Lista de nodos, ndarray bidimensional de n * 10 dtype = float
         """
+        #Fórmula del Q-learning para alfa = 1 
+        self.target_build[task,0] = reward + gamma * q_value
+        print('         reward = {},    Q_value = {},   target = {},    task = {},  action = {}'.format(reward, q_value, self.target_build[task,0], task, action))
 
-        _target = reward + gamma * q_value
-        _input = self._get_input(state, Nodes[action,:])
+        #print(state)
+        self.state_build[task,:] = state
+        self.node_build[task,:] = Nodes[action,:]
 
-        self.model.fit(_input, np.array([[_target]]), verbose=0)
+        
+    def train(self):
+
+        _input = np.concatenate((self.state_build, self.node_build), axis=1)
+        _input = self._normalize(_input)
+        #print(_input)
+        #print( self.target_build)
+        self.model.fit(_input, self.target_build, verbose=0)
 
     def evaluate(self, _input):
         """

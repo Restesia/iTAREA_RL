@@ -16,8 +16,8 @@ time_start = time.time()
 reward, mat_result = runner.inference()
 
 runner.print_asignacion(mat_result)
-
 time_end = time.time()
+
 
 timeT = time_end - time_start
 

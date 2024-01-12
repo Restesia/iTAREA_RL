@@ -93,7 +93,7 @@ class SPP_Env(Env):
         """      
 
         # Comprobar si el estado en el que nos encontramos es un estado final y asigna la tarea 
-        terminal = 1 if self._target_task == self.Tasks.shape[0] - 2 else 0
+        terminal = 1 if self._target_task == self.Tasks.shape[0] - 1 else 0
 
 
         # Calcula la recompensa para la accion seleccionada esta es el negativo de la energía computacional.
@@ -104,10 +104,17 @@ class SPP_Env(Env):
 
         #Incrementamos el contador y preparamos la siguiente tarea
         self._target_task = self._target_task + 1
-        task = self.Tasks[self._target_task,:]
+
+        if not terminal:
+            task = self.Tasks[self._target_task,:]
+            mask, reject = self.get_action_mask(task, self.Nodes)
+        else:
+            task = []
+            mask = []
+            reject = False
+
 
         #Calculamos la mascara de acciones, esta nos indica las acciones que pueden ser tomadas en el siguiente paso de ejecucion
-        mask, reject = self.get_action_mask(self.Tasks[self._target_task,:], self.Nodes)
 
         #node = self.Nodes[action:]
 
